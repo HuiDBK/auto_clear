@@ -5,6 +5,7 @@ author:Mr Liu
 version:1.0
 """
 import re
+import sys
 import common
 import PySimpleGUI as sg
 
@@ -26,7 +27,7 @@ class BaseWin(object):
 class MainWin(BaseWin):
     """主窗口"""
     # 菜单项
-    menu_def = [[u'编码板信息', [u'添加编码板', u'删除编码板', u'查看编码板信息']],
+    menu_def = [[u'编码板信息', [u'添加编码板', '批量添加编码板', u'删除编码板', u'查看编码板信息']],
                 [u'帮助', u'关于作者'], ]
 
     def __init__(self, title):
@@ -81,24 +82,42 @@ class MainWin(BaseWin):
                 print(event)
             elif event in u'添加编码板':
                 self.__add_code(event)
+            elif event in u'批量添加编码板':
+                print(event)
             elif event in u'删除编码板':
                 self.__delete_code(event)
             elif event in u'查看编码板信息':
-                print(event)
+                self.__show_code_info(event)
             elif event in 'erase_tag':
                 print(event)
 
         self.window.close()
+        sg.quit()
+        sys.exit(0)
 
     def __delete_code(self, event):
         """删除编码,修改配置文件信息"""
-        result = sg.PopupGetText(u'请输入要删除的编码', event)
-        if result:
-            pass
-        else:
-            print('empty')
+        code = str(sg.PopupGetText(u'请输入要删除的编码', event, keep_on_top=True)).upper()
+        if code and code not in 'NONE':
+            if self.__check_code(code):
+                # 判断删除的编码是否在配置文件中
+                if code in common.CONF.ENCODING_LIST:
+                    common.CONF.remove_code(code)
+                    sg.Popup(u'%s编码删除成功' % code, title='RemoveSuccess', keep_on_top=True, font=25)
+                else:
+                    sg.Popup(u'配置文件不存在%s编码无需删除' % code, title='CodeNoExist', keep_on_top=True, font=25)
+                    self.__delete_code(event)
+            else:
+                sg.Popup(
+                    u'%s编码格式错误,请输入正确的编码格式\n\n例如:0302C1E5' % code,
+                    title='编码格式错误',
+                    font=25,
+                    keep_on_top=True
+                )
+                self.__delete_code(event)
 
-    def __check_code(self, content):
+    @staticmethod
+    def __check_code(content):
         """检查编码格式"""
         # 8位由字母加数字组成的正则表达式,不区分大小写
         pattern = re.compile(r'^[a-zA-Z0-9]{8}$')
@@ -106,27 +125,44 @@ class MainWin(BaseWin):
 
     def __add_code(self, event):
         """添加编码,修改配置文件信息"""
-        result = sg.PopupGetText(u'请输入要添加的编码', event, keep_on_top=True)
-        if result:
-            if self.__check_code(result):
-                print('正确')
+        code = str(sg.PopupGetText(u'请输入要添加的编码', event, keep_on_top=True, font=25)).upper()
+        print(code)
+        if code and code not in 'NONE':
+            if self.__check_code(code):
+                # 判断添加的编码是否重复
+                if code in common.CONF.ENCODING_LIST:
+                    sg.Popup(u'配置文件存在%s编码无需添加' % code, title='CodeRepeat', keep_on_top=True, font=25)
+                    self.__add_code(event)
+                else:
+                    common.CONF.add_code(code)
+                    sg.Popup(u'%s编码插入成功' % code, title='InsertSuccess', keep_on_top=True, font=25)
             else:
                 sg.Popup(
-                    u'%s编码格式错误,请输入正确的编码格式\n\n例如:0302C1E5' % result,
+                    u'%s编码格式错误,请输入正确的编码格式\n\n例如:0302C1E5' % code,
                     title='编码格式错误',
                     font=25,
                     keep_on_top=True
                 )
                 self.__add_code(event)
 
-    def __show_code_info(self, event):
+    @staticmethod
+    def __show_code_info(event):
         """查看编码板信息"""
-        pass
+        code_info_list = common.CONF.ENCODING_LIST
+        if code_info_list:
+            code_info = ''
+            for i in range(len(code_info_list)):
+                if (i+1) % 6 == 0:
+                    code_info += '\n'
+                else:
+                    code_info += code_info_list[i] + '\t'
+            sg.PopupScrolled(code_info, title=u'需要删除电子标签的编码板', font=25, size=(45, 5))
+        else:
+            sg.Popup(u'无 编 码', title='Empty', font=45)
 
 
 def main():
     MainWin(title='电子标签检测').start()
-    pass
 
 
 if __name__ == '__main__':

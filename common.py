@@ -41,12 +41,29 @@ class TagEraseConf(Config):
         encoding_options = cls.conf_parser.options(cls.ENCODING_SECTION)
         for option in encoding_options:
             code_value = cls.conf_parser.get(cls.ENCODING_SECTION, option)
-            cls.ENCODING_LIST.append(code_value)
+            cls.ENCODING_LIST.append(str(code_value).upper())
 
         # 解析telnet节点信息
         cls.USER = cls.conf_parser.get(cls.TELNET_SECTION, 'user')
         cls.TEL_PWD_LIST = str(cls.conf_parser.get(cls.TELNET_SECTION, 'password')).split(cls.SPIT_STR)
         cls.DEFAULT_IP = cls.conf_parser.get(cls.TELNET_SECTION, 'default_ip')
+
+    def add_code(self, code):
+        """添加编码板信息"""
+        new_code_option = 'code_' + str(len(self.ENCODING_LIST)+1)
+        self.conf_parser.set(self.ENCODING_SECTION, new_code_option, code)
+        self.conf_parser.write(open(self.conf_file, mode='w'))
+        self.ENCODING_LIST.append(str(code))
+
+    def remove_code(self, code):
+        """删除指定的编码板信息"""
+        # 找到要删除编码对应的option信息
+        items = self.conf_parser.items(self.ENCODING_SECTION)
+        option_values = [item[1] for item in items]
+        option_index = option_values.index(code)
+        self.conf_parser.remove_option(self.ENCODING_SECTION, option=items[option_index][0])
+        self.conf_parser.write(open(self.conf_file, mode='w'))
+        self.ENCODING_LIST.remove(str(code))
 
 
 CONF = TagEraseConf()
@@ -58,6 +75,9 @@ def main():
     print(conf.USER)
     print(conf.TEL_PWD_LIST)
     print(conf.DEFAULT_IP)
+    items = [option[1] for option in list(conf.conf_parser.items(conf.ENCODING_SECTION))]
+    print(items)
+    print(items.index('0302C1E4'))
 
 
 if __name__ == '__main__':
