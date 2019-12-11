@@ -4,6 +4,7 @@
 author:Mr Liu
 version:1.0
 """
+import re
 import configparser
 
 
@@ -69,12 +70,20 @@ class TagEraseConf(Config):
 CONF = TagEraseConf()
 
 
+def check_ip(ip):
+    """检查IP是否有效"""
+    # ip合法性的正则表达式
+    pattern = r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+    return re.match(pattern, ip)
+
+
 def main():
     conf = TagEraseConf()
     print(conf.ENCODING_LIST)
     print(conf.USER)
     print(conf.TEL_PWD_LIST)
     print(conf.DEFAULT_IP)
+    print(conf.conf_parser.items(conf.ENCODING_SECTION))
     items = [option[1] for option in list(conf.conf_parser.items(conf.ENCODING_SECTION))]
     print(items)
     print(items.index('0302C1E4'))
@@ -82,3 +91,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+

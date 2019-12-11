@@ -4,9 +4,15 @@
 author:Mr Liu
 version:1.0
 """
+# from gevent import monkey; monkey.patch_all()
 import re
 import sys
+import time
+import utils
 import common
+# import gevent
+import threading
+import multiprocessing
 import PySimpleGUI as sg
 
 sg.change_look_and_feel('DarkBlue1')  # 窗口主题
@@ -74,12 +80,10 @@ class MainWin(BaseWin):
 
     def __event_handler(self):
         while True:
-            event, values = self.window.read()
-            print(event, values)
+            event, value_dict = self.window.read()
+            print(event, value_dict)
             if event in (None, 'Quit'):
                 break
-            elif event in 'show_tag':
-                print(event)
             elif event in u'添加编码板':
                 self.__add_code(event)
             elif event in u'批量添加编码板':
@@ -88,8 +92,10 @@ class MainWin(BaseWin):
                 self.__delete_code(event)
             elif event in u'查看编码板信息':
                 self.__show_code_info(event)
+            elif event in 'show_tag':
+                self.__show_dev_tag(value_dict, event)
             elif event in 'erase_tag':
-                print(event)
+                self.__erase_dev_tag(value_dict, event)
 
         self.window.close()
         sg.quit()
@@ -146,19 +152,114 @@ class MainWin(BaseWin):
                 self.__add_code(event)
 
     @staticmethod
-    def __show_code_info(event):
-        """查看编码板信息"""
+    def __show_code_info():
+        """查看需要要擦除的编码板信息"""
         code_info_list = common.CONF.ENCODING_LIST
         if code_info_list:
             code_info = ''
             for i in range(len(code_info_list)):
-                if (i+1) % 6 == 0:
+                if (i + 1) % 6 == 0:
                     code_info += '\n'
                 else:
                     code_info += code_info_list[i] + '\t'
             sg.PopupScrolled(code_info, title=u'需要删除电子标签的编码板', font=25, size=(45, 5))
         else:
             sg.Popup(u'无 编 码', title='Empty', font=45)
+
+    def __show_dev_tag(self, value_dict, event):
+        """
+        查看设备的电子标签
+        :param value_dict: 窗口信息字典
+        """
+        # print(value_dict)
+        dev_ip = value_dict['dev_ip']
+        self.__choose_dev_fn(value_dict, event)
+
+    def __choose_dev_fn(self, value_dict, flag):
+        """
+        选择查看或者删除设备的电子标签
+        :param value_dict: 窗口信息字典
+        :param flag: 实现功能标识  -->  flag = 'show_tag' 显示, flag='erase_tag' 擦除
+        """
+        dev_ip = value_dict['dev_ip']
+        if dev_ip:
+            # 手动输入了设备IP
+            if common.check_ip(dev_ip):
+                print('合法IP')
+                if utils.TelnetClient.check_telnet(dev_ip):
+                    # IP ping 通进入IPC终端
+                    ipc = utils.IPCTelnet(dev_ip)
+                    if ipc.login():
+                        # 通过flag来标识具体实现什么功能
+                        ipc_manuinfo = str(ipc.manuinfo).upper()
+                        if flag == 'show_tag':
+
+                            print("登录成功,查看电子标签")
+                            if len(ipc_manuinfo) > 200:
+                                sg.PopupScrolled(ipc_manuinfo, title=u'电子标签', font=25, size=(52, 25))
+                            else:
+                                sg.PopupScrolled(ipc_manuinfo, title=u'电子标签', font=25, size=(52, 8))
+                        elif flag == 'erase_tag':
+                            print("登录成功,删除电子标签")
+                            # 判断配置文件的要删除电子标签的编码板信息是否在该设备的电子标签中
+                            is_exist = False    # 默认标识不存在
+                            index = ipc_manuinfo.find('ENC-')
+                            print(index)
+                            index += 4
+                            encode = ipc_manuinfo[index: index+8]   # 截取编码板信息
+                            print(encode)
+                            for code in common.CONF.ENCODING_LIST:
+                                if code in ipc_manuinfo:
+                                    # 存在删除
+                                    is_exist = True
+                                    result = ipc.manuinfo_erase()
+                                    print(result)
+                                    break
+                            if is_exist:
+                                sg.Popup(u'删除成功', title=u'删除成功', font=25)
+                            else:
+                                print('不存在配置文件无需删除')
+                                sg.Popup(
+                                    u'该电子标签的编码板不在配置文件中无需删除',
+                                    title=u'无需删除', font=25)
+                    else:
+                        print("登录失败")
+                        sg.Popup(u'Telnet无法登录', title=u'登录失败', font=25, text_color='red')
+                else:
+                    print('网络不通或者工厂模式关闭')
+                    sg.Popup(u'网络不通或者工厂模式关闭', title=u'网络不通', font=25, text_color='red')
+            else:
+                sg.Popup(
+                    u'手输设备IP: %s 格式不正确\n\n正确格式例如: 192.168.0.12' % dev_ip,
+                    title=u'IP格式错误',
+                    font=25,
+                    text_color='red'
+                )
+        else:
+            print('无手动输入设备IP使用默认IP')
+            def_ip = value_dict['def_ip']
+            if utils.TelnetClient.check_telnet(def_ip):
+                # IP ping 通进入IPC终端
+                ipc = utils.IPCTelnet(def_ip)
+                if ipc.login():
+                    print('登录成功,查看电子标签')
+                    if len(ipc.manuinfo) > 200:
+                        sg.PopupScrolled(ipc.manuinfo, title=u'电子标签', font=25, size=(52, 25))
+                    else:
+                        sg.PopupScrolled(ipc.manuinfo, title=u'电子标签', font=25, size=(52, 8))
+                else:
+                    print("登录失败")
+                    sg.Popup(u'Telnet无法登录', title=u'登录失败', font=25, text_color='red')
+            else:
+                print('网络不通或者工厂模式关闭')
+                sg.Popup(u'网络不通或者工厂模式关闭', title=u'网络不通', font=25, text_color='red')
+
+    def __erase_dev_tag(self, value_dict, event):
+        """
+        删除设备的电子标签
+        :param value_dict: 窗口信息字典
+        """
+        self.__choose_dev_fn(value_dict, event)
 
 
 def main():
@@ -167,3 +268,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    # check_ip_state_win("192.168.0.12")
