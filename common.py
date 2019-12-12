@@ -7,6 +7,11 @@ version:1.0
 import re
 import configparser
 
+# 作者信息
+AUTHOR_NAME = u'刘民晖'
+WORK_NUM = 'W8402'
+EMAIL = 'liuminhui W8402/uniview01'
+COPY_RIGHT = u'CopyRight©2019-2020 宇视科技 uniview.com 浙ICP备5201314号'
 
 class Config(object):
     """信息配置基类"""
@@ -60,7 +65,7 @@ class TagEraseConf(Config):
         """删除指定的编码板信息"""
         # 找到要删除编码对应的option信息
         items = self.conf_parser.items(self.ENCODING_SECTION)
-        option_values = [item[1] for item in items]
+        option_values = [str(item[1]).upper() for item in items]
         option_index = option_values.index(code)
         self.conf_parser.remove_option(self.ENCODING_SECTION, option=items[option_index][0])
         self.conf_parser.write(open(self.conf_file, mode='w'))
