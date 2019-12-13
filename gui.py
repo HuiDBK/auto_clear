@@ -14,6 +14,7 @@ import common
 import threading
 import multiprocessing
 import PySimpleGUI as sg
+import config
 
 sg.change_look_and_feel('DarkBlue1')  # 窗口主题
 
@@ -33,9 +34,13 @@ class BaseWin(object):
 
 class MainWin(BaseWin):
     """主窗口"""
+
+    # 程序默认配置文件
+    CONF = config.CONFIG
+
     # 菜单项
     menu_def = [
-        [u'编码板信息', [u'添加编码板', u'删除编码板', u'批量添加编码板',  u'查看编码板信息']],
+        [u'编码板信息', [u'添加编码板', u'删除编码板', u'批量添加编码板', u'查看编码板信息']],
         [u'Telnet信息', [u'添加Telnet账户', u'添加Telnet密码', u'查看账户和密码']],
         [u'关于', [u'关于作者', ]],
     ]
@@ -52,17 +57,17 @@ class MainWin(BaseWin):
             [sg.Menu(self.menu_def, key='menu', tearoff=True)],
             [
                 sg.Text(u'Telnet用户:'),
-                sg.InputText(common.CONF.USER, text_color=self.DISABLE_FONT_COLOR,
+                sg.InputText(self.CONF.USER, text_color=self.DISABLE_FONT_COLOR,
                              size=(20, 20), key='telnet_user', disabled=True)
             ],
             [
                 sg.Text(u'Telnet密码:'),
-                sg.InputText(str(common.CONF.TEL_PWD_LIST[0]), text_color=self.DISABLE_FONT_COLOR,
+                sg.InputText(str(self.CONF.TEL_PWD_LIST[0]), text_color=self.DISABLE_FONT_COLOR,
                              size=(20, 20), key='telnet_pwd', disabled=True)
             ],
             [
                 sg.Text(u'默 认 IP:'),
-                sg.InputText(common.CONF.DEFAULT_IP, text_color=self.DISABLE_FONT_COLOR,
+                sg.InputText(self.CONF.DEFAULT_IP, text_color=self.DISABLE_FONT_COLOR,
                              size=(20, 20), pad=(31, 0), key='def_ip', disabled=True)
             ],
             [
@@ -113,8 +118,8 @@ class MainWin(BaseWin):
         if code and code not in 'NONE':
             if self.__check_code(code):
                 # 判断删除的编码是否在配置文件中
-                if code in common.CONF.ENCODING_LIST:
-                    common.CONF.remove_code(code)
+                if code in self.CONF.ENCODING_LIST:
+                    self.CONF.remove_code(code)
                     sg.Popup(u'%s编码删除成功' % code, title='RemoveSuccess', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
                 else:
                     sg.Popup(u'配置文件不存在%s编码无需删除' % code, title='CodeNoExist', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
@@ -142,11 +147,11 @@ class MainWin(BaseWin):
         if code and code not in 'NONE':
             if self.__check_code(code):
                 # 判断添加的编码是否重复
-                if code in common.CONF.ENCODING_LIST:
+                if code in self.CONF.ENCODING_LIST:
                     sg.Popup(u'配置文件存在%s编码无需添加' % code, title='CodeRepeat', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
                     self.__add_code(event)
                 else:
-                    common.CONF.add_code(code)
+                    self.CONF.add_code(code)
                     sg.Popup(u'%s编码插入成功' % code, title='InsertSuccess', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
             else:
                 sg.Popup(
@@ -159,7 +164,7 @@ class MainWin(BaseWin):
 
     def __show_code_info(self, event):
         """查看需要要擦除的编码板信息"""
-        code_info_list = common.CONF.ENCODING_LIST
+        code_info_list = self.CONF.ENCODING_LIST
         if code_info_list:
             code_info = ''
             for i in range(len(code_info_list)):
@@ -223,7 +228,7 @@ class MainWin(BaseWin):
                         index += 4
                         encode = ipc_manuinfo[index: index + 8]  # 截取编码板信息
                         print(encode)
-                        if encode in common.CONF.ENCODING_LIST:
+                        if encode in self.CONF.ENCODING_LIST:
                             print('需要删除')
                             result = ipc.manuinfo_erase()
                             print(result)
@@ -285,14 +290,8 @@ class MainWin(BaseWin):
                     code_set.add(code.upper())
 
         # 取出不在配置文件中的元素
-        ok_list = list(code_set.difference(common.CONF.ENCODING_LIST))
+        ok_list = list(code_set.difference(self.CONF.ENCODING_LIST))
         print(ok_list)
-        # for code in code_set:
-        #     if self.__check_code(code):
-        #         # 添加不重复的编码
-        #         if code not in common.CONF.ENCODING_LIST:
-        #             common.CONF.add_code(code)
-        #             insert_ok_list.append(code)
 
         if ok_list:
             result = ''
@@ -301,12 +300,17 @@ class MainWin(BaseWin):
                     result += '\n'
                 else:
                     result += ok_list[i] + '\t'
-                common.CONF.add_code(ok_list[i])
+                self.CONF.add_code(ok_list[i])
             sg.PopupScrolled(u'%s个编码插入成功分别为:\n%s' % (len(ok_list), result),
                              title='InsertSuccess', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
         else:
             sg.Popup(u'编码已存在配置文件中,无需插入', title=u'编码已存在', font=self.DIALOG_FONT_SIZE)
         batch_add_win.close()
+
+
+def start():
+    """开启程序图形化界面"""
+    MainWin(title='电子标签检测').start()
 
 
 def main():
