@@ -1,0 +1,12 @@
+[encode]
+code_1 = 0302C1E4
+code_2 = 0302C1E5
+code_3 = 0302C1E6
+code_4 = 0302C1E8
+code_6 = 0302C1E7
+
+[telnet]
+user = root
+password = 123456#arts18#admin123#uniview
+default_ip = 192.168.0.13
+
