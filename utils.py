@@ -5,7 +5,7 @@ author:Mr Liu
 version:1.0
 """
 import time
-import threading
+import config
 import telnetlib
 import traceback
 from colorama import init, Fore, Back, Style
@@ -99,8 +99,9 @@ class TelnetClient(object):
 
 class IPCTelnet(TelnetClient):
     """IPC Telnet终端类"""
-    username = 'root'
-    password = '123456'
+    TEL_CONF = config.TagEraseConf()
+    username = TEL_CONF.USER
+    passwords = TEL_CONF.TEL_PWD_LIST
 
     equipment_flag = False  # 标识是否进入装备模式
 
@@ -125,23 +126,28 @@ class IPCTelnet(TelnetClient):
         except:
             print(traceback.format_exc())
             return login_status
-        # 等待login: 出现,最多等待5s
-        self.telnet_client.read_until(b'login:', timeout=5)
-        # 以ASCII码的方式写入用户名
-        self.telnet_client.write(self.username.encode('ascii') + b'\n')
-        self.telnet_client.read_until(b'Password:', timeout=5)
-        self.telnet_client.write(self.password.encode('ascii') + b'\n')
-        login_result = self.telnet_client.read_until(b'User@/root>', timeout=5).decode(encoding='ascii')
-        # 5秒后还没读取到User@/root>判断账号密码是否错误
-        if 'Login incorrect' in login_result:
-            return login_status
-        elif 'User@/root>' in login_result:
-            login_status = True
-            return login_status
-        else:
-            print(login_result)
-            print('未知异常')
-            return login_status
+
+        for password in self.passwords:
+            # 等待login: 出现,最多等待5s
+            self.telnet_client.read_until(b'login:', timeout=5)
+
+            # 以ASCII码的方式写入用户名
+            self.telnet_client.write(self.username.encode('ascii') + b'\n')
+            self.telnet_client.read_until(b'Password:', timeout=5)
+            self.telnet_client.write(password.encode('ascii') + b'\n')
+            login_result = self.telnet_client.read_until(b'User@/root>', timeout=5).decode(encoding='ascii')
+
+            # 5秒后还没读取到User@/root>判断账号密码是否错误
+            if 'Login incorrect' in login_result:
+                login_status = False
+            elif 'User@/root>' in login_result:
+                login_status = True
+                return login_status
+            else:
+                print(login_result)
+                print('未知异常')
+                login_status = False
+        return login_status
 
     def execute_cmd(self, cmd: str):
         """
@@ -237,6 +243,12 @@ class IPCTelnet(TelnetClient):
         elif 'state: [0]':
             ware_status = False
         return ware_status
+
+    def reboot(self):
+        """设备重启"""
+        result = self.execute_cmd('reboot')
+        print(result)
+        return result
 
     manuinfo = property(display_manuinfo)
     date = property(show_date)  # 时间信息

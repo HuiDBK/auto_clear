@@ -9,12 +9,11 @@ import re
 import sys
 import time
 import utils
-import common
-# import gevent
-import threading
-import multiprocessing
-import PySimpleGUI as sg
 import config
+import common
+import threading
+import PySimpleGUI as sg
+
 
 sg.change_look_and_feel('DarkBlue1')  # 窗口主题
 
@@ -22,11 +21,11 @@ sg.change_look_and_feel('DarkBlue1')  # 窗口主题
 class BaseWin(object):
     """窗口基类"""
 
-    FONT_SIZE = 18  # 字体大小
+    FONT_SIZE = 18  # 默认字体大小
     DIALOG_FONT_SIZE = 25   # 对话框的字体大小
     DISABLE_FONT_COLOR = "BLACK"  # 控件不可用的字体颜色
 
-    LOGO = './image/unv.png'
+    LOGO = common.BASE_DIR + '/image/unv.png'
 
     def __init__(self):
         pass
@@ -36,19 +35,19 @@ class MainWin(BaseWin):
     """主窗口"""
 
     # 程序默认配置文件
-    CONF = config.CONFIG
+    CONF = config.TagEraseConf()
 
     # 菜单项
     menu_def = [
         [u'编码板信息', [u'添加编码板', u'删除编码板', u'批量添加编码板', u'查看编码板信息']],
-        [u'Telnet信息', [u'添加Telnet账户', u'添加Telnet密码', u'查看账户和密码']],
-        [u'关于', [u'关于作者', ]],
+        [u'Telnet信息', [u'添加Telnet密码', u'查看账户和密码']],
+        [u'帮助', [u'导出日志', u'关于作者', ]],
     ]
 
     def __init__(self, title):
-        self.title = title
-        self.window = None
-        self.layout = None
+        self.title = title  # 窗口标题
+        self.window = None  # 窗口对象
+        self.layout = None  # 窗口布局
         self.__init_layout()
 
     def __init_layout(self):
@@ -93,40 +92,60 @@ class MainWin(BaseWin):
             print(event, value_dict)
             if event in (None, 'Quit'):
                 break
-            elif event in u'添加编码板':
-                self.__add_code(event)
-            elif event in u'批量添加编码板':
-                self.__batch_add_code(event)
-            elif event in u'删除编码板':
-                self.__delete_code(event)
-            elif event in u'查看编码板信息':
-                self.__show_code_info(event)
-            elif event in u'关于作者':
-                self.__about_author(event)
-            elif event in 'show_tag':
-                self.__show_dev_tag(value_dict, event)
-            elif event in 'erase_tag':
-                self.__erase_dev_tag(value_dict, event)
-
+            else:
+                self.__handle_events(event, value_dict)
         self.window.close()
         sg.quit()
         sys.exit(0)
+
+    def __handle_events(self, event, value_dict):
+        """
+        统一处理事件,降低代码的冗余性
+        :param event:事件
+        :param value_dict:窗口内容字典
+        """
+
+        # 开启另一个窗口时,让主窗口不可用,防止用户刻意多次点击造成不如意的结果
+        self.window.disable()
+        if event in u'添加编码板':
+            self.__add_code(event)
+        elif event in u'删除编码板':
+            self.__delete_code(event)
+        elif event in u'批量添加编码板':
+            self.__batch_add_code(event)
+        elif event in u'查看编码板信息':
+            self.__show_code_info(event)
+        # elif event in u'添加Telnet账户':
+        #     print(event)
+        elif event in u'添加Telnet密码':
+            self.__add_tel_pwd()
+        elif event in u'查看账户和密码':
+            self.__show_tel_info()
+        elif event in u'导出日志':
+            print(event)
+        elif event in u'关于作者':
+            self.__about_author(event)
+        elif event in 'show_tag':
+            self.__show_dev_tag(value_dict, event)
+        elif event in 'erase_tag':
+            self.__erase_dev_tag(value_dict, event)
+        self.window.enable()
 
     def __delete_code(self, event):
         """删除编码,修改配置文件信息"""
         code = str(sg.PopupGetText(u'请输入要删除的编码', event, keep_on_top=True)).upper()
         if code and code not in 'NONE':
-            if self.__check_code(code):
+            if self.check_code(code):
                 # 判断删除的编码是否在配置文件中
                 if code in self.CONF.ENCODING_LIST:
                     self.CONF.remove_code(code)
-                    sg.Popup(u'%s编码删除成功' % code, title='RemoveSuccess', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
+                    sg.Popup(u'\n %s 编码删除成功\n' % code, title=u'移除成功', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
                 else:
-                    sg.Popup(u'配置文件不存在%s编码无需删除' % code, title='CodeNoExist', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
+                    sg.Popup(u'\n配置文件不存在 %s 编码无需删除\n' % code, title=u'编码不存在', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
                     self.__delete_code(event)
             else:
                 sg.Popup(
-                    u'%s编码格式错误,请输入正确的编码格式\n\n例如:0302C1E5' % code,
+                    u'\n %s 编码格式错误,请输入正确的编码格式\n\n例如:0302C1E5\n' % code,
                     title='编码格式错误',
                     font=self.DIALOG_FONT_SIZE,
                     keep_on_top=True
@@ -134,7 +153,7 @@ class MainWin(BaseWin):
                 self.__delete_code(event)
 
     @staticmethod
-    def __check_code(content):
+    def check_code(content):
         """检查编码格式"""
         # 8位由字母加数字组成的正则表达式,不区分大小写
         pattern = re.compile(r'^[a-zA-Z0-9]{8}$')
@@ -145,18 +164,18 @@ class MainWin(BaseWin):
         code = str(sg.PopupGetText(u'请输入要添加的编码', event, keep_on_top=True, font=self.DIALOG_FONT_SIZE)).upper()
         print(code)
         if code and code not in 'NONE':
-            if self.__check_code(code):
+            if self.check_code(code):
                 # 判断添加的编码是否重复
                 if code in self.CONF.ENCODING_LIST:
-                    sg.Popup(u'配置文件存在%s编码无需添加' % code, title='CodeRepeat', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
+                    sg.Popup(u'\n配置文件存在 %s 编码无需添加\n' % code, title=u'编码存在', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
                     self.__add_code(event)
                 else:
                     self.CONF.add_code(code)
-                    sg.Popup(u'%s编码插入成功' % code, title='InsertSuccess', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
+                    sg.Popup(u'\n %s 编码添加成功\n' % code, title=u'添加成功', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
             else:
                 sg.Popup(
-                    u'%s编码格式错误,请输入正确的编码格式\n\n例如:0302C1E5' % code,
-                    title='编码格式错误',
+                    u'\n %s 编码格式错误,请输入正确的编码格式\n\n例如:0302C1E5\n' % code,
+                    title=u'编码格式错误',
                     font=self.DIALOG_FONT_SIZE,
                     keep_on_top=True
                 )
@@ -172,7 +191,7 @@ class MainWin(BaseWin):
                     code_info += '\n'
                 else:
                     code_info += code_info_list[i] + '\t'
-            sg.PopupScrolled(code_info, title=u'需要删除电子标签的编码板', font=self.DIALOG_FONT_SIZE, size=(45, 5))
+            sg.PopupScrolled(code_info, title=u'需要删除电子标签的编码板:', font=self.DIALOG_FONT_SIZE, size=(45, 5))
         else:
             sg.Popup(u'无 编 码', title='Empty', font=45)
 
@@ -264,7 +283,7 @@ class MainWin(BaseWin):
                       (common.AUTHOR_NAME, common.WORK_NUM, common.EMAIL, common.COPY_RIGHT)
         sg.Popup(author_info, title=u'关于作者', font=self.DIALOG_FONT_SIZE)
 
-    def __batch_add_code(self, event):
+    def __batch_add_code(self, event=None):
         """批量添加要删除电子标签的编码"""
         tip_msg = u'批量添加要删除电子标签的编码, 每个编码一行'
         layout = [
@@ -274,6 +293,16 @@ class MainWin(BaseWin):
         ]
         batch_add_win = sg.Window(u'批量添加编码', layout)
         event, value_dict = batch_add_win.read()
+
+        if event in ('None', None):     # 点击关闭按钮X
+            batch_add_win.close()
+            return
+
+        # 判断没有输入编码数据
+        if not str(value_dict['codes']).replace('\n', ''):
+            sg.Popup(u'没有输入任何编码信息', title='无输入', font=self.DIALOG_FONT_SIZE)
+            batch_add_win.close()
+            return
 
         # 去除空格, \t并按'\n'切割,最后去除重复值
         code_list = set(str(value_dict['codes']).replace(' ', '').replace('\t', '').split('\n'))
@@ -285,13 +314,23 @@ class MainWin(BaseWin):
             result = re.search(r'[a-zA-Z0-9]{8}', code)
             if result:
                 code = result.group(0)
-                print(code)
+                # 判断是否是0302编码前缀
                 if code.startswith('0302'):
                     code_set.add(code.upper())
 
+        if not code_set:
+            sg.Popup(u'\n输入的编码没有符合要求\n', title=u'无编码添加', font=self.DIALOG_FONT_SIZE)
+            batch_add_win.close()
+            return
+
+        if code_set.issubset(self.CONF.ENCODING_LIST):
+            # 配置文件已存在，无需添加
+            sg.Popup(u'\n配置文件已存在\n\n%s，无需添加\n' % code_set, title=u'无需添加', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
+            batch_add_win.close()
+            return
+
         # 取出不在配置文件中的元素
         ok_list = list(code_set.difference(self.CONF.ENCODING_LIST))
-        print(ok_list)
 
         if ok_list:
             result = ''
@@ -301,11 +340,38 @@ class MainWin(BaseWin):
                 else:
                     result += ok_list[i] + '\t'
                 self.CONF.add_code(ok_list[i])
-            sg.PopupScrolled(u'%s个编码插入成功分别为:\n%s' % (len(ok_list), result),
-                             title='InsertSuccess', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
+                self.CONF.ENCODING_LIST.append(ok_list[i])
+            sg.PopupScrolled(u'%s 个编码添加成功分别为:\n%s' % (len(ok_list), result),
+                             title=u'添加成功', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
         else:
-            sg.Popup(u'编码已存在配置文件中,无需插入', title=u'编码已存在', font=self.DIALOG_FONT_SIZE)
+            sg.Popup(u'\n输入的编码没有符合要求\n', title=u'无编码添加', font=self.DIALOG_FONT_SIZE)
         batch_add_win.close()
+
+    # 暂时不开放添加Telnet用户功能
+    # def __add_tel_user(self):
+    #     """添加Telnet用户"""
+    #     title = u'添加Telnet用户'
+    #     user = sg.PopupGetText(u'请输入要添加的Telnet用户', title, keep_on_top=True, font=self.DIALOG_FONT_SIZE)
+    #     pass
+
+    def __add_tel_pwd(self):
+        """添加Telnet密码"""
+        title = u'添加Telnet密码'
+        tel_pwd = sg.PopupGetText(u'请输入要添加的Telnet密码', title, keep_on_top=True, font=self.DIALOG_FONT_SIZE)
+        print(tel_pwd)
+        if tel_pwd:
+            if tel_pwd in self.CONF.TEL_PWD_LIST:
+                sg.Popup(u'\n%s 密码已存在,无需添加\n' % tel_pwd, title=u'密码存在', font=self.DIALOG_FONT_SIZE)
+            else:
+                self.CONF.add_tel_pwd(tel_pwd)
+                self.CONF.TEL_PWD_LIST.append(tel_pwd)
+                sg.Popup(u'\n成功添加 %s Telnet密码\n' % tel_pwd, title=u'添加成功', font=self.DIALOG_FONT_SIZE)
+
+    def __show_tel_info(self):
+        """显示Telnet账户信息"""
+        telnet_info = '\nTelnet用户: %s\n\n' \
+                      'Telnet密码: %s\n' % (self.CONF.USER, self.CONF.TEL_PWD_LIST)
+        sg.Popup(telnet_info, title='Telnet账户信息:', font=self.DIALOG_FONT_SIZE)
 
 
 def start():
@@ -313,7 +379,28 @@ def start():
     MainWin(title='电子标签检测').start()
 
 
+def open_factorymode():
+    """开启设备的工厂模式"""
+    def_ip = '192.168.0.13'
+    # start_time = time.time()
+    while True:
+        print('test')
+        ipc = utils.IPCTelnet(def_ip)
+        if ipc.login():
+            ipc.open_fac_mode()
+            ipc.reboot()
+            break
+        time.sleep(1)
+        # if (time.time() - start_time) > 10:     # 超时退出循环
+        #     break
+    print('exit fn')
+
+
 def main():
+    # 利用设备刚上电有一段ip是192.168.0.13的时间
+    # 开一个线程去开启设备的工厂模式防止进不去telnet
+    open_fac_t = threading.Thread(target=open_factorymode)
+    open_fac_t.start()
     MainWin(title='电子标签检测').start()
 
 

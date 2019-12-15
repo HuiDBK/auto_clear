@@ -196,9 +196,19 @@
       </list>
     </option>
   </component>
+<<<<<<< HEAD
   <component name="ProjectFrameBounds" extendedState="7">
+=======
+<<<<<<< HEAD
+  <component name="ProjectFrameBounds" extendedState="7">
+    <option name="x" value="-90" />
+    <option name="y" value="220" />
+=======
+  <component name="ProjectFrameBounds" extendedState="6">
+>>>>>>> temp
     <option name="x" value="66" />
     <option name="y" value="66" />
+>>>>>>> temp
     <option name="width" value="1400" />
     <option name="height" value="820" />
   </component>

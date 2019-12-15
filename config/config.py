@@ -11,12 +11,13 @@ import common
 import traceback
 import configparser
 
+
 # 日志配置文件路径
-LOG_CONF_PATH = os.path.join(common.BASE_DIR, 'config\log_conf.yaml')
-print(LOG_CONF_PATH)
+LOG_CONF_PATH = os.path.join(common.BASE_DIR, 'config\\log_conf.yaml')
+
 
 # 程序默认的配置文件
-DEF_CONF = 'config.cfg'
+DEF_CONF = os.path.join(common.BASE_DIR, 'config\\config.txt')
 
 
 class Config(object):
@@ -27,7 +28,8 @@ class Config(object):
     @classmethod
     def parser(cls):
         try:
-            cls.conf_parser.read(DEF_CONF, encoding='utf-8')  # 解析配置文件
+            cls.conf_parser.read(DEF_CONF)  # 解析配置文件
+            print('test')
         except Exception:
             print(traceback.format_exc())
             sys.exit()
@@ -36,14 +38,14 @@ class Config(object):
 class TagEraseConf(Config):
     """电子标签需要清除的配置类"""
 
-    ENCODING_LIST = []     # 需要清除的编码板列表
+    ENCODING_LIST = []  # 需要清除的编码板列表
     USER = None
     TEL_PWD_LIST = []
     DEFAULT_IP = None
 
-    ENCODING_SECTION = 'encode'    # 编码板信息节点名称
+    ENCODING_SECTION = 'encode'  # 编码板信息节点名称
 
-    TELNET_SECTION = 'telnet'          # telnet信息节点名称
+    TELNET_SECTION = 'telnet'  # telnet信息节点名称
 
     SPIT_STR = '#'  # telnet密码分隔符
 
@@ -68,9 +70,9 @@ class TagEraseConf(Config):
 
     def add_code(self, code):
         """添加编码板信息"""
-        new_code_option = 'code_' + str(len(self.ENCODING_LIST)+1)
+        new_code_option = 'code_' + str(len(self.ENCODING_LIST) + 1)
         self.conf_parser.set(self.ENCODING_SECTION, new_code_option, code)
-        self.conf_parser.write(open(self.conf_file, mode='w'))
+        self.conf_parser.write(open(DEF_CONF, mode='w'))
         self.ENCODING_LIST.append(str(code))
 
     def remove_code(self, code):
@@ -80,11 +82,17 @@ class TagEraseConf(Config):
         option_values = [str(item[1]).upper() for item in items]
         option_index = option_values.index(code)
         self.conf_parser.remove_option(self.ENCODING_SECTION, option=items[option_index][0])
-        self.conf_parser.write(open(self.conf_file, mode='w'))
+        self.conf_parser.write(open(DEF_CONF, mode='w'))
         self.ENCODING_LIST.remove(str(code))
 
+    def add_tel_pwd(self, add_tel_pwd):
+        """添加Telnet密码"""
+        tel_pwd = self.conf_parser.get(self.TELNET_SECTION, 'password')
+        new_tel_pwd = tel_pwd + '#' + add_tel_pwd
+        self.conf_parser.set(self.TELNET_SECTION, 'password', new_tel_pwd)
+        self.conf_parser.write(open(DEF_CONF, mode='w'))
+        self.TEL_PWD_LIST.append(add_tel_pwd)
 
-CONFIG = TagEraseConf()
 
 def main():
     conf = TagEraseConf()
