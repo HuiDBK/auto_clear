@@ -25,3 +25,9 @@ yy-mm-dd hh:MM:ss - log_test.py - 35 - INFO - Finish
 2019-12-13 10:15:45 - log_test.py - 32 - INFO - Start print log
 2019-12-13 10:15:45 - log_test.py - 34 - WARNING - Something maybe fail.
 2019-12-13 10:15:45 - log_test.py - 35 - INFO - Finish
+2019-12-15 22:38:45 Sun - log_test.py - 32 - INFO - Start print log
+2019-12-15 22:38:45 Sun - log_test.py - 34 - WARNING - Something maybe fail.
+2019-12-15 22:38:45 Sun - log_test.py - 35 - INFO - Finish
+2019-12-15 22:39:15 Sun - log_test.py - 32 - INFO - Start print log
+2019-12-15 22:39:15 Sun - log_test.py - 34 - WARNING - Something maybe fail.
+2019-12-15 22:39:15 Sun - log_test.py - 35 - INFO - Finish

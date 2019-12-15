@@ -6,14 +6,16 @@ author:Mr Liu
 version:1.0
 """
 import gui
+import config
 
 
 def load_conf():
     """加载配置文件"""
-    pass
+    config.setup_logging()  # 加载日志配置文件
 
 
 def main():
+    load_conf()
     gui.start()
 
 

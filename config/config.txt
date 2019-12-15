@@ -4,6 +4,9 @@ code_2 = 0302C1E5
 code_3 = 0302C1E6
 code_4 = 0302C1E8
 code_6 = 0302C1E7
+code_11 = 0302C1E9
+code_13 = 0302C1LB
+code_15 = 0302C1SL
 
 [telnet]
 user = root

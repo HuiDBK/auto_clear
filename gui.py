@@ -11,6 +11,7 @@ import time
 import utils
 import config
 import common
+import logging
 import threading
 import PySimpleGUI as sg
 
@@ -129,7 +130,40 @@ class MainWin(BaseWin):
             self.__show_dev_tag(value_dict, event)
         elif event in 'erase_tag':
             self.__erase_dev_tag(value_dict, event)
+
         self.window.enable()
+
+    @staticmethod
+    def check_code(content):
+        """检查编码格式"""
+        # 8位由字母加数字组成的正则表达式,不区分大小写
+        pattern = re.compile(r'^[a-zA-Z0-9]{8}$')
+        return re.match(pattern, content)
+
+    def __add_code(self, event):
+        """添加编码,修改配置文件信息"""
+        code = str(sg.PopupGetText(u'请输入要添加的编码', event, keep_on_top=True, font=self.DIALOG_FONT_SIZE)).upper()
+        logging.debug(code)
+        if code and code not in 'NONE':
+            if self.check_code(code):
+                # 判断添加的编码是否重复
+                if code in self.CONF.ENCODING_LIST:
+                    sg.Popup(u'\n配置文件存在 %s 编码无需添加\n' % code, title=u'编码存在', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
+                    logging.info('code:%s - Add failed because for repetition')
+                    self.__add_code(event)
+                else:
+                    self.CONF.add_code(code)
+                    logging.info('code:%s - Add success' % code)
+                    sg.Popup(u'\n %s 编码添加成功\n' % code, title=u'添加成功', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
+            else:
+                logging.info('code:%s - Add failed because for encoding format was incorrect' % code)
+                sg.Popup(
+                    u'\n %s 编码格式错误,请输入正确的编码格式\n\n例如:0302C1E5\n' % code,
+                    title=u'编码格式错误',
+                    font=self.DIALOG_FONT_SIZE,
+                    keep_on_top=True
+                )
+                self.__add_code(event)
 
     def __delete_code(self, event):
         """删除编码,修改配置文件信息"""
@@ -152,37 +186,8 @@ class MainWin(BaseWin):
                 )
                 self.__delete_code(event)
 
-    @staticmethod
-    def check_code(content):
-        """检查编码格式"""
-        # 8位由字母加数字组成的正则表达式,不区分大小写
-        pattern = re.compile(r'^[a-zA-Z0-9]{8}$')
-        return re.match(pattern, content)
-
-    def __add_code(self, event):
-        """添加编码,修改配置文件信息"""
-        code = str(sg.PopupGetText(u'请输入要添加的编码', event, keep_on_top=True, font=self.DIALOG_FONT_SIZE)).upper()
-        print(code)
-        if code and code not in 'NONE':
-            if self.check_code(code):
-                # 判断添加的编码是否重复
-                if code in self.CONF.ENCODING_LIST:
-                    sg.Popup(u'\n配置文件存在 %s 编码无需添加\n' % code, title=u'编码存在', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
-                    self.__add_code(event)
-                else:
-                    self.CONF.add_code(code)
-                    sg.Popup(u'\n %s 编码添加成功\n' % code, title=u'添加成功', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
-            else:
-                sg.Popup(
-                    u'\n %s 编码格式错误,请输入正确的编码格式\n\n例如:0302C1E5\n' % code,
-                    title=u'编码格式错误',
-                    font=self.DIALOG_FONT_SIZE,
-                    keep_on_top=True
-                )
-                self.__add_code(event)
-
     def __show_code_info(self, event):
-        """查看需要要擦除的编码板信息"""
+        """查看需要要擦除电子标签的编码板信息"""
         code_info_list = self.CONF.ENCODING_LIST
         if code_info_list:
             code_info = ''
@@ -191,8 +196,10 @@ class MainWin(BaseWin):
                     code_info += '\n'
                 else:
                     code_info += code_info_list[i] + '\t'
+            logging.info('- Display information that needs to be erase from the tag')
             sg.PopupScrolled(code_info, title=u'需要删除电子标签的编码板:', font=self.DIALOG_FONT_SIZE, size=(45, 5))
         else:
+            logging.info('- Display empty encodings')
             sg.Popup(u'无 编 码', title='Empty', font=45)
 
     def __show_dev_tag(self, value_dict, event):
@@ -202,6 +209,7 @@ class MainWin(BaseWin):
         """
         # print(value_dict)
         dev_ip = value_dict['dev_ip']
+        logging.info('- Display dev tag:')
         self.__choose_dev_fn(value_dict, event)
 
     def __choose_dev_fn(self, value_dict, flag):
@@ -214,57 +222,63 @@ class MainWin(BaseWin):
         if not dev_ip:
             # 无手输设备IP,使用默认IP
             dev_ip = value_dict['def_ip']
-            print(dev_ip)
+
+        logging.DEBUG(dev_ip)
+        logging.INFO('- device ip %s' % dev_ip)
 
         if common.check_ip(dev_ip):  # 检查IP的合法性
-            print('合法IP')
+            logging.DEBUG('合法IP')
             if utils.TelnetClient.check_telnet(dev_ip):  # 检查IP的是否可以进入telnet
                 ipc = utils.IPCTelnet(dev_ip)
                 if ipc.login():  # 判断设备是否登录成功
                     ipc_manuinfo = str(ipc.manuinfo).upper()  # 取出IPC的电子标签
                     if flag == 'show_tag':
-                        print("登录成功,查看电子标签,长度%d" % len(ipc_manuinfo))
+                        logging.INFO('- login success display tag, len=%d' % len(ipc_manuinfo))
+                        logging.INFO(ipc_manuinfo)
                         if len(ipc_manuinfo) > 200:
                             sg.PopupScrolled(ipc_manuinfo, title=u'电子标签', font=self.DIALOG_FONT_SIZE, size=(52, 25))
                         else:
                             sg.PopupScrolled(ipc_manuinfo, title=u'电子标签', font=self.DIALOG_FONT_SIZE, size=(52, 8))
                     elif flag == 'erase_tag':
-                        print("登录成功,删除电子标签")
+                        logging.INFO('- login success, erase tag')
                         # 根据@符号的个数来判断电子标签是否为空
                         if ipc_manuinfo.count('@') <= 2:
+                            logging.INFO('- Empty tag')
                             sg.Popup(u'\n该设备的电子标签为空,无需删除\n\n请人工排查是否正确\n',
                                      title=u'电子标签为空', font=self.DIALOG_FONT_SIZE, text_color='red')
                             return
 
                         # 判断配置文件的要删除电子标签的编码板信息是否在该设备的电子标签中
                         index = ipc_manuinfo.find('ENC-')
-                        print(index)
+                        logging.DEBUG('- ENC index=%d' % index)
                         if index == -1:  # 没有找到ENC-说明电子标签不完整
-                            sg.Popup(u'该设备的电子标签不完整,请人工检查电子标签是否正确\n\n%s\n'
+                            logging.INFO('- could not fin ENC- flag, tag incomplete')
+                            sg.Popup(u'\n该设备的电子标签不完整,请人工检查电子标签是否正确\n\n%s\n'
                                      % ipc_manuinfo.replace('\r', ''),
                                      title=u'电子标签不完整', font=self.DIALOG_FONT_SIZE, text_color='white')
                             return
                         index += 4
                         encode = ipc_manuinfo[index: index + 8]  # 截取编码板信息
-                        print(encode)
+                        logging.DEBUG('Encode=%s' % encode)
                         if encode in self.CONF.ENCODING_LIST:
-                            print('需要删除')
+                            logging.INFO('- code:%s in the config file, erase tag success')
                             result = ipc.manuinfo_erase()
-                            print(result)
+                            # logging.DEBUG(result)
                             sg.Popup(u'\n电子标签删除成功,根据%s编码板\n' % encode, title=u'删除成功', font=self.DIALOG_FONT_SIZE, text_color='#08F61A')
                         else:
-                            print('无需删除')
-                            sg.Popup(u'无需删除,该设备的%s编码不在配置文件中\n\n如需删除请把%s编码添加到配置文件中\n'
+                            logging.INFO("- code:%s not in the config file, Don't need erase")
+                            sg.Popup(u'\n无需删除,该设备的%s编码不在配置文件中\n\n如需删除请把%s编码添加到配置文件中\n'
                                      % (encode, encode), title=u'电子标签无需删除', font=self.DIALOG_FONT_SIZE, text_color='#08F61A')
                 else:
-                    print("登录失败")
-                    sg.Popup(u'Telnet无法登录', title=u'登录失败', font=self.DIALOG_FONT_SIZE, text_color='red')
+                    logging.INFO('- login failed')
+                    sg.Popup(u'\nTelnet无法登录\n', title=u'登录失败', font=self.DIALOG_FONT_SIZE, text_color='red')
             else:
-                print('网络不通或者工厂模式关闭')
-                sg.Popup(u'网络不通或者工厂模式关闭', title=u'网络不通', font=self.DIALOG_FONT_SIZE, text_color='red')
+                logging.INFO('- login failed possible Network outage or factory mode off')
+                sg.Popup(u'\n网络不通或者工厂模式关闭\n', title=u'网络不通', font=self.DIALOG_FONT_SIZE, text_color='red')
         else:
+            logging.INFO('- Input ip format is incorrect')
             sg.Popup(
-                u'手输设备IP: %s 格式不正确\n\n正确格式例如: 192.168.0.12' % dev_ip,
+                u'\n手输设备IP: %s 格式不正确\n\n正确格式例如: 192.168.0.12\n' % dev_ip,
                 title=u'IP格式错误',
                 font=self.DIALOG_FONT_SIZE,
                 text_color='red'
@@ -275,12 +289,14 @@ class MainWin(BaseWin):
         删除设备的电子标签
         :param value_dict: 窗口信息字典
         """
+        logging.info('- Erase dev tag:')
         self.__choose_dev_fn(value_dict, event)
 
     def __about_author(self, event):
         """关于作者的信息"""
         author_info = u'姓名: %s\n\n\n工号: %s\n\n\n邮箱: %s\n\n\n%s\n' % \
                       (common.AUTHOR_NAME, common.WORK_NUM, common.EMAIL, common.COPY_RIGHT)
+        logging.INFO('- About author - Hui')
         sg.Popup(author_info, title=u'关于作者', font=self.DIALOG_FONT_SIZE)
 
     def __batch_add_code(self, event=None):
@@ -376,6 +392,7 @@ class MainWin(BaseWin):
 
 def start():
     """开启程序图形化界面"""
+
     MainWin(title='电子标签检测').start()
 
 
@@ -399,8 +416,8 @@ def open_factorymode():
 def main():
     # 利用设备刚上电有一段ip是192.168.0.13的时间
     # 开一个线程去开启设备的工厂模式防止进不去telnet
-    open_fac_t = threading.Thread(target=open_factorymode)
-    open_fac_t.start()
+    # open_fac_t = threading.Thread(target=open_factorymode)
+    # open_fac_t.start()
     MainWin(title='电子标签检测').start()
 
 

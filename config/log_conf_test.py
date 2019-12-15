@@ -5,11 +5,8 @@ author: Mr Liu
 version: 1.0
 """
 import os
-import sys
 import yaml
-import common
 import config
-import logging
 import logging.config
 
 

@@ -19,12 +19,12 @@ import logging
 # %(message)s：打印日志信息
 
 logger = logging.getLogger(__name__)
-logger.setLevel(level=logging.INFO)
+logger.setLevel(level=logging.DEBUG)
 handler = logging.FileHandler("log.txt")
 handler.setLevel(logging.INFO)
 formatter = logging.Formatter(
     fmt='%(asctime)s - %(filename)s - %(lineno)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    datefmt='%Y-%m-%d %H:%M:%S %a'
 )
 handler.setFormatter(formatter)
 logger.addHandler(handler)
