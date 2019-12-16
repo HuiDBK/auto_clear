@@ -44,7 +44,6 @@ class Config(object):
     def parser(cls):
         try:
             cls.conf_parser.read(DEF_CONF)  # 解析配置文件
-            print('test')
         except Exception:
             print(traceback.format_exc())
             sys.exit()
@@ -53,35 +52,41 @@ class Config(object):
 class TagEraseConf(Config):
     """电子标签需要清除的配置类"""
 
-    ENCODING_LIST = []  # 需要清除的编码板列表
     USER = None
-    TEL_PWD_LIST = []
+
     DEFAULT_IP = None
 
     ENCODING_SECTION = 'encode'  # 编码板信息节点名称
 
     TELNET_SECTION = 'telnet'  # telnet信息节点名称
 
+    WIN_SECTION = 'win_style'   # gui窗口信息节点名称
+
     SPIT_STR = '#'  # telnet密码分隔符
 
     def __init__(self):
+        self.ENCODING_LIST = list()  # 需要清除的编码板列表
+        self.TEL_PWD_LIST = list()   # telnet账户密码列表
+        self.WIN_THEME = None
         self.parser()
 
-    @classmethod
-    def parser(cls):
+    def parser(self):
         """解析数据库配置信息"""
         super().parser()
 
         # 解析编码板节点信息并封装到列表中
-        encoding_options = cls.conf_parser.options(cls.ENCODING_SECTION)
+        encoding_options = self.conf_parser.options(self.ENCODING_SECTION)
         for option in encoding_options:
-            code_value = cls.conf_parser.get(cls.ENCODING_SECTION, option)
-            cls.ENCODING_LIST.append(str(code_value).upper())
+            code_value = self.conf_parser.get(self.ENCODING_SECTION, option)
+            self.ENCODING_LIST.append(str(code_value).upper())
 
         # 解析telnet节点信息
-        cls.USER = cls.conf_parser.get(cls.TELNET_SECTION, 'user')
-        cls.TEL_PWD_LIST = str(cls.conf_parser.get(cls.TELNET_SECTION, 'password')).split(cls.SPIT_STR)
-        cls.DEFAULT_IP = cls.conf_parser.get(cls.TELNET_SECTION, 'default_ip')
+        self.USER = self.conf_parser.get(self.TELNET_SECTION, 'user')
+        self.TEL_PWD_LIST = str(self.conf_parser.get(self.TELNET_SECTION, 'password')).split(self.SPIT_STR)
+        self.DEFAULT_IP = self.conf_parser.get(self.TELNET_SECTION, 'default_ip')
+
+        # 解析win_style节点信息
+        self.WIN_THEME = self.conf_parser.get(self.WIN_SECTION, 'win_theme')
 
     def add_code(self, code):
         """添加编码板信息"""
@@ -107,6 +112,15 @@ class TagEraseConf(Config):
         self.conf_parser.set(self.TELNET_SECTION, 'password', new_tel_pwd)
         self.conf_parser.write(open(DEF_CONF, mode='w'))
         self.TEL_PWD_LIST.append(add_tel_pwd)
+
+    def change_win_theme(self, new_theme):
+        """
+        改变窗口主题
+        :param new_theme: 新主题名称
+        """
+        self.conf_parser.set(self.WIN_SECTION, 'win_theme', new_theme)
+        self.conf_parser.write(open(DEF_CONF, mode='w'))
+        self.WIN_THEME = new_theme
 
 
 def main():

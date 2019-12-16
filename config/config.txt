@@ -2,14 +2,14 @@
 code_1 = 0302C1E4
 code_2 = 0302C1E5
 code_3 = 0302C1E6
-code_4 = 0302C1E8
-code_6 = 0302C1E7
-code_11 = 0302C1E9
-code_13 = 0302C1LB
-code_15 = 0302C1SL
+code_4 = 0302C1E7
+code_6 = 0302C1HW
 
 [telnet]
 user = root
-password = 123456#arts18
+password = 123456#arts18#uniview
 default_ip = 192.168.0.13
+
+[win_style]
+win_theme = DarkBlue1
 

@@ -1,12 +1,13 @@
 # -*- coding:utf-8 -*-
 """
-程序入口模块
+程序主入口模块
 根据编码板信息动态擦除电子标签
 author:Mr Liu
 version:1.0
 """
 import gui
 import config
+import logging
 
 
 def load_conf():
@@ -16,6 +17,7 @@ def load_conf():
 
 def main():
     load_conf()
+    logging.info('[Program Started]')
     gui.start()
 
 
