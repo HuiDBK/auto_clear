@@ -6,12 +6,14 @@ version:1.0
 """
 # from gevent import monkey; monkey.patch_all()
 import re
+import os
 import sys
 import time
 import utils
 import config
 import common
 import logging
+import traceback
 import threading
 import PySimpleGUI as sg
 
@@ -25,7 +27,7 @@ class BaseWin(object):
     """窗口基类"""
 
     FONT_SIZE = 18  # 默认字体大小
-    DIALOG_FONT_SIZE = 25   # 对话框的字体大小
+    DIALOG_FONT_SIZE = 25  # 对话框的字体大小
     DISABLE_FONT_COLOR = "BLACK"  # 控件不可用的字体颜色
 
     LOGO = common.BASE_DIR + '/image/unv.png'
@@ -97,7 +99,7 @@ class MainWin(BaseWin):
         while True:
             event, value_dict = self.window.read()
             if event in (None, 'Quit'):
-                logging.info('[Program Quit]')
+                logging.info('[Program Quit]\n')
                 break
             else:
                 self.__handle_events(event, value_dict)
@@ -129,7 +131,7 @@ class MainWin(BaseWin):
         elif event in u'查看账户和密码':
             self.__show_tel_info()
         elif event in u'导出日志':
-            print(event)
+            self.export_log()
         elif event in themes:
             self.switch_theme(event)
         elif event in u'关于作者':
@@ -168,7 +170,7 @@ class MainWin(BaseWin):
         if code and code not in 'NONE':
             # 判断添加的编码是否符合格式
             if self.check_code(code) and code.startswith('0302'):
-                if code in self.CONF.ENCODING_LIST:     # 判断添加的编码是否重复
+                if code in self.CONF.ENCODING_LIST:  # 判断添加的编码是否重复
                     logging.warning('code:%s - Add failed because for repetition' % code)
                     sg.Popup(u'\n配置文件存在 %s 编码无需添加\n' % code, title=u'编码存在',
                              keep_on_top=True, font=self.DIALOG_FONT_SIZE)
@@ -201,7 +203,8 @@ class MainWin(BaseWin):
                     sg.Popup(u'\n %s 编码移除成功\n' % code, title=u'移除成功', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
                 else:
                     logging.warning('code:%s - Remove failed because for encoding in the config file' % code)
-                    sg.Popup(u'\n配置文件不存在 %s 编码无需移除\n' % code, title=u'编码不存在', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
+                    sg.Popup(u'\n配置文件不存在 %s 编码无需移除\n' % code, title=u'编码不存在', keep_on_top=True,
+                             font=self.DIALOG_FONT_SIZE)
                     self.__remove_code(event)
             else:
                 logging.warning('code:%s - Remove failed because for encoding format was incorrect' % code)
@@ -293,11 +296,13 @@ class MainWin(BaseWin):
                             logging.info('code:%s in the config file, erase tag success' % encode)
                             result = ipc.manuinfo_erase()
                             # logging.debug(result)
-                            sg.Popup(u'\n电子标签删除成功,根据%s编码板\n' % encode, title=u'删除成功', font=self.DIALOG_FONT_SIZE, text_color='#08F61A')
+                            sg.Popup(u'\n电子标签删除成功,根据%s编码板\n' % encode, title=u'删除成功', font=self.DIALOG_FONT_SIZE,
+                                     text_color='#08F61A')
                         else:
                             logging.warning("code:%s not in the config file, Don't need erase")
                             sg.Popup(u'\n无需删除,该设备的%s编码不在配置文件中\n\n如需删除请把%s编码添加到配置文件中\n'
-                                     % (encode, encode), title=u'电子标签无需删除', font=self.DIALOG_FONT_SIZE, text_color='#08F61A')
+                                     % (encode, encode), title=u'电子标签无需删除', font=self.DIALOG_FONT_SIZE,
+                                     text_color='#08F61A')
                 else:
                     logging.warning('login failed')
                     sg.Popup(u'\nTelnet无法登录\n', title=u'登录失败', font=self.DIALOG_FONT_SIZE, text_color='red')
@@ -340,7 +345,7 @@ class MainWin(BaseWin):
         batch_add_win = sg.Window(u'批量添加编码', layout)
         event, value_dict = batch_add_win.read()
 
-        if event in ('None', None):     # 点击关闭按钮X
+        if event in ('None', None):  # 点击关闭按钮X
             batch_add_win.close()
             return
 
@@ -424,6 +429,34 @@ class MainWin(BaseWin):
                       'Telnet密码: %s\n' % (self.CONF.USER, self.CONF.TEL_PWD_LIST)
         logging.info('Display telnet information')
         sg.Popup(telnet_info, title='Telnet账户信息:', font=self.DIALOG_FONT_SIZE)
+
+    def export_log(self):
+        """导出程序日志"""
+        logging.info('Export log:')
+        folder_path = sg.PopupGetFolder(u'选择导出程序日志的位置', title=u'导出日志',
+                                        font=self.DIALOG_FONT_SIZE)
+        logging.debug(folder_path)
+        if folder_path in ('', 'None', None):
+            logging.info('empty path')
+            return
+        if os.path.exists(folder_path):
+            try:
+                with open(common.INFO_LOG_PATH, mode='rb') as log_file:
+                    log_result = log_file.read()
+
+                export_path = os.path.join(folder_path, 'log.txt')
+                with open(export_path, mode='wb') as file_obj:
+                    file_obj.write(log_result)
+
+                logging.info('export log success, path[%s]' % export_path)
+                sg.Popup(u'导出程序日志成功', title=u'导出成功', font=self.DIALOG_FONT_SIZE)
+            except:
+                logging.error('Export log failed, log path[%s], export path[%s]'
+                              % (common.INFO_LOG_PATH, folder_path))
+                logging.error(str(traceback.format_exc()))
+                sg.Popup(u'导出程序日志失败', title=u'导出失败', font=self.DIALOG_FONT_SIZE)
+        else:
+            logging.info('export path not exists')
 
 
 def start():

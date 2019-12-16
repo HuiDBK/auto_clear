@@ -13,8 +13,12 @@ import configparser
 
 # 项目根路径
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-print(BASE_DIR)
+logging.debug(BASE_DIR)
 sys.path.append(BASE_DIR)
+
+# 日志路径
+INFO_LOG_PATH = os.path.join(BASE_DIR, 'log/info.log')
+ERROR_LOG_PATH = os.path.join(BASE_DIR, 'log/error.log')
 
 # 作者信息
 AUTHOR_NAME = u'刘民晖'
