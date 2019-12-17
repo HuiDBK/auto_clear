@@ -11,6 +11,7 @@ import common
 import traceback
 import configparser
 import logging.config
+import PySimpleGUI as sg
 
 
 # 日志配置文件路径
@@ -22,7 +23,7 @@ DEF_CONF = os.path.join(common.BASE_DIR, 'config\\config.txt')
 
 
 def setup_logging(default_path=LOG_CONF_PATH, default_level=logging.INFO, env_key="LOG_CFG"):
-    """加载yaml文件配置信息"""
+    """加载日志yaml配置文件信息"""
     path = default_path
     value = os.getenv(env_key, None)
     if value:
@@ -45,7 +46,9 @@ class Config(object):
         try:
             cls.conf_parser.read(DEF_CONF)  # 解析配置文件
         except Exception:
-            print(traceback.format_exc())
+            logging.error(traceback.format_exc())
+            sg.PopupError(u'\n无法正常解析配置文件\n\n请勿随意更改配置文件信息!!!\n',
+                          title=u'配置文件错误', background_color='#242834', font=45, text_color='WHITE')
             sys.exit()
 
 

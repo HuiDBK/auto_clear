@@ -4,7 +4,6 @@
 author:Mr Liu
 version:1.0
 """
-# from gevent import monkey; monkey.patch_all()
 import re
 import os
 import sys
@@ -22,6 +21,9 @@ themes = [
     'DarkBlue1', 'DarkBlue12', 'Dark',
 ]
 
+telnet_login_state = False
+telnet_time_out_state = False
+
 
 class BaseWin(object):
     """窗口基类"""
@@ -30,7 +32,9 @@ class BaseWin(object):
     DIALOG_FONT_SIZE = 25  # 对话框的字体大小
     DISABLE_FONT_COLOR = "BLACK"  # 控件不可用的字体颜色
 
+    WIN_ICON = common.BASE_DIR + '/image/logo.ico'
     LOGO = common.BASE_DIR + '/image/unv.png'
+    LOADING_GIF = common.BASE_DIR + '/image/loading.gif'
 
     def __init__(self):
         pass
@@ -39,11 +43,7 @@ class BaseWin(object):
 class MainWin(BaseWin):
     """主窗口"""
 
-    # 程序默认配置文件
-    CONF = config.TagEraseConf()
-
     ip_input_color = 'YELLOW'
-
     # 菜单项
     menu_def = [
         [u'编码板信息', [u'添加编码板', u'删除编码板', u'批量添加编码板', u'查看编码板信息']],
@@ -52,8 +52,8 @@ class MainWin(BaseWin):
     ]
 
     def __init__(self, title):
-        # 设置窗口默认主题
-        sg.change_look_and_feel(self.CONF.WIN_THEME)
+        self.CONF = config.TagEraseConf()   # 加载程序默认配置文件
+        sg.change_look_and_feel(self.CONF.WIN_THEME)    # 设置窗口主题
         self.title = title  # 窗口标题
         self.window = None  # 窗口对象
         self.layout = None  # 窗口布局
@@ -91,7 +91,7 @@ class MainWin(BaseWin):
     def start(self):
         """开启主窗口"""
         self.window = sg.Window(title=self.title, layout=self.layout, element_padding=(5, 30),
-                                font=('宋体', self.FONT_SIZE))
+                                font=('宋体', self.FONT_SIZE), icon=self.WIN_ICON)
         # 开启事件监听
         self.__event_handler()
 
@@ -178,12 +178,12 @@ class MainWin(BaseWin):
                 else:
                     self.CONF.add_code(code)
                     logging.info('code:%s - Add success' % code)
-                    sg.Popup(u'\n %s 编码添加成功\n' % code, title=u'添加成功',
+                    sg.Popup(u'\n%s 编码添加成功\n' % code, title=u'添加成功',
                              keep_on_top=True, font=self.DIALOG_FONT_SIZE)
             else:
                 logging.warning('code:%s - Add failed because for encoding format was incorrect' % code)
                 sg.Popup(
-                    u'\n %s 编码格式错误,请输入正确的编码格式\n\n例如:0302C1E5\n' % code,
+                    u'\n%s 编码格式错误,请输入正确的编码格式\n\n例如:0302C1E5\n' % code,
                     title=u'编码格式错误',
                     font=self.DIALOG_FONT_SIZE,
                     keep_on_top=True
@@ -200,7 +200,7 @@ class MainWin(BaseWin):
                 if code in self.CONF.ENCODING_LIST:
                     self.CONF.remove_code(code)
                     logging.info('code:%s - Remove success' % code)
-                    sg.Popup(u'\n %s 编码移除成功\n' % code, title=u'移除成功', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
+                    sg.Popup(u'\n%s 编码移除成功\n' % code, title=u'移除成功', keep_on_top=True, font=self.DIALOG_FONT_SIZE)
                 else:
                     logging.warning('code:%s - Remove failed because for encoding in the config file' % code)
                     sg.Popup(u'\n配置文件不存在 %s 编码无需移除\n' % code, title=u'编码不存在', keep_on_top=True,
@@ -209,7 +209,7 @@ class MainWin(BaseWin):
             else:
                 logging.warning('code:%s - Remove failed because for encoding format was incorrect' % code)
                 sg.Popup(
-                    u'\n %s 编码格式错误,请输入正确的编码格式\n\n例如:0302C1E5\n' % code,
+                    u'\n%s 编码格式错误,请输入正确的编码格式\n\n例如:0302C1E5\n' % code,
                     title='编码格式错误',
                     font=self.DIALOG_FONT_SIZE,
                     keep_on_top=True
@@ -262,7 +262,18 @@ class MainWin(BaseWin):
             logging.debug('合法IP')
             if utils.TelnetClient.check_telnet(dev_ip):  # 检查IP的是否可以进入telnet
                 ipc = utils.IPCTelnet(dev_ip)
-                if ipc.login():  # 判断设备是否登录成功
+
+                # 登录Telnet是耗时操作,用线程处理
+                login_t = threading.Thread(target=login_ipc, args=(ipc, ))
+                login_t.setDaemon(True)
+                login_t.start()
+
+                # 加载等待动画
+                self.loading_animate()
+
+                global telnet_time_out_state
+                global telnet_login_state
+                if telnet_login_state:  # 判断设备是否登录成功
                     ipc_manuinfo = str(ipc.manuinfo).upper()  # 取出IPC的电子标签
                     if flag == 'show_tag':
                         logging.info('login success display tag, len=%d' % len(ipc_manuinfo))
@@ -271,6 +282,8 @@ class MainWin(BaseWin):
                             sg.PopupScrolled(ipc_manuinfo, title=u'电子标签', font=self.DIALOG_FONT_SIZE, size=(52, 25))
                         else:
                             sg.PopupScrolled(ipc_manuinfo, title=u'电子标签', font=self.DIALOG_FONT_SIZE, size=(52, 8))
+                        telnet_login_state = False
+                        telnet_time_out_state = False
                     elif flag == 'erase_tag':
                         logging.info('login success, erase tag')
                         # 根据@符号的个数来判断电子标签是否为空
@@ -328,8 +341,8 @@ class MainWin(BaseWin):
 
     def __about_author(self, event):
         """关于作者的信息"""
-        author_info = u'姓名: %s\n\n\n工号: %s\n\n\n邮箱: %s\n\n\n%s\n' % \
-                      (common.AUTHOR_NAME, common.WORK_NUM, common.EMAIL, common.COPY_RIGHT)
+        author_info = u'姓名: %s\n\n\n工号: %s\n\n\n部门: %s\n\n\n邮箱: %s\n\n\n%s\n' % \
+                      (common.AUTHOR_NAME, common.WORK_NUM, common.DEPARTMENT, common.EMAIL, common.COPY_RIGHT)
         logging.info('About author[Hui]')
         sg.Popup(author_info, title=u'关于作者', font=self.DIALOG_FONT_SIZE)
 
@@ -433,7 +446,7 @@ class MainWin(BaseWin):
     def export_log(self):
         """导出程序日志"""
         logging.info('Export log:')
-        folder_path = sg.PopupGetFolder(u'选择导出程序日志的位置', title=u'导出日志',
+        folder_path = sg.PopupGetFolder(u'\n选择导出程序日志的位置\n', title=u'导出日志',
                                         font=self.DIALOG_FONT_SIZE)
         logging.debug(folder_path)
         if folder_path in ('', 'None', None):
@@ -458,37 +471,57 @@ class MainWin(BaseWin):
         else:
             logging.info('export path not exists')
 
+    def loading_animate(self):
+        """等待动画"""
+        global telnet_login_state
+        global telnet_time_out_state
+        start_time = time.time()
+        while True:
+            if telnet_login_state:
+                # 登录成功则关闭等待的窗口
+                break
+            if telnet_time_out_state:
+                # 登录超时则退出循环关闭等待的窗口
+                break
+            sg.PopupAnimated(image_source=self.LOADING_GIF, time_between_frames=60)
+        print('login use time:%ss' % (time.time() - start_time,))
+        sg.PopupAnimated(image_source=None)
+
+
+def login_ipc(ipc):
+    global telnet_login_state
+    global telnet_time_out_state
+    start_time = time.time()
+    while True:
+        login_state = ipc.login()
+        if login_state:
+            telnet_login_state = True
+            break
+
+        if time.time() - start_time > 15:   # 15s登录超时时间
+            telnet_time_out_state = True
+            break
+
 
 def start():
     """开启程序图形化界面"""
     MainWin(title='电子标签检测').start()
 
 
-def open_factorymode():
-    """开启设备的工厂模式"""
-    def_ip = '192.168.0.13'
-    # start_time = time.time()
-    while True:
-        print('test')
-        ipc = utils.IPCTelnet(def_ip)
-        if ipc.login():
-            ipc.open_fac_mode()
-            ipc.reboot()
-            break
-        time.sleep(1)
-        # if (time.time() - start_time) > 10:     # 超时退出循环
-        #     break
-    print('exit fn')
-
-
 def main():
-    # 利用设备刚上电有一段ip是192.168.0.13的时间
-    # 开一个线程去开启设备的工厂模式防止进不去telnet
-    # open_fac_t = threading.Thread(target=open_factorymode)
-    # open_fac_t.start()
-    MainWin(title='电子标签检测').start()
+    start()
+    # loading_gif = common.BASE_DIR + '/image/loading.gif'
+    # loading_gif = sg.DEFAULT_BASE64_LOADING_GIF
+    # start_time = time.time()
+    # while True:
+    #     use_time = (time.time() - start_time)
+    #     print(use_time)
+    #     if use_time >= 30:
+    #         print('stop')
+    #         break
+    #     sg.PopupAnimated(image_source=loading_gif, time_between_frames=30)
+    # sg.PopupAnimated(image_source=None)
 
 
 if __name__ == '__main__':
     main()
-    # check_ip_state_win("192.168.0.12")

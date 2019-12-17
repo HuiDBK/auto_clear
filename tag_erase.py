@@ -17,7 +17,7 @@ def load_conf():
 
 def main():
     load_conf()
-    logging.info('\n[Program Started]')
+    logging.info('[Program Started]')
     gui.start()
 
 

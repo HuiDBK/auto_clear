@@ -4,63 +4,10 @@
 author:Mr Liu
 version:1.0
 """
-import time
 import config
 import telnetlib
 import traceback
-from colorama import init, Fore, Back, Style
-init(autoreset=True)
-
-ping_state = False
-
-
-class ColorUtil(object):
-    """颜色工具类类"""
-
-    #  前景色:红色  背景色:默认
-    @staticmethod
-    def red(s):
-        return Fore.RED + s + Fore.RESET
-
-    #  前景色:绿色  背景色:默认
-    @staticmethod
-    def green(s):
-        return Style.BRIGHT + Fore.GREEN + s + Fore.RESET
-
-    #  前景色:黄色  背景色:默认
-    @staticmethod
-    def yellow(s):
-        return Fore.YELLOW + s + Fore.RESET
-
-    #  前景色:蓝色  背景色:默认
-    @staticmethod
-    def blue(s):
-        return Fore.BLUE + s + Fore.RESET
-
-    #  前景色:洋红色  背景色:默认
-    @staticmethod
-    def magenta(s):
-        return Fore.MAGENTA + s + Fore.RESET
-
-    #  前景色:青色  背景色:默认
-    @staticmethod
-    def cyan(s):
-        return Style.BRIGHT + Fore.CYAN + s + Fore.RESET
-
-    #  前景色:白色  背景色:默认
-    @staticmethod
-    def white(s):
-        return Style.BRIGHT + Fore.WHITE + s + Fore.RESET
-
-    #  前景色:黑色  背景色:默认
-    @staticmethod
-    def black(s):
-        return Fore.BLACK
-
-    #  前景色:白色  背景色:绿色
-    @staticmethod
-    def white_green(s):
-        return Fore.WHITE + Back.GREEN + s + Fore.RESET + Back.RESET
+import threading
 
 
 class TelnetClient(object):
@@ -99,10 +46,8 @@ class TelnetClient(object):
 
 class IPCTelnet(TelnetClient):
     """IPC Telnet终端类"""
-    TEL_CONF = config.TagEraseConf()
-    username = TEL_CONF.USER
-    passwords = TEL_CONF.TEL_PWD_LIST
 
+    _instance_lock = threading.Lock()
     equipment_flag = False  # 标识是否进入装备模式
 
     # 进入装备模式命令和装备调试命令列表
@@ -114,8 +59,19 @@ class IPCTelnet(TelnetClient):
         'test tf get status', 'set serverip', 'get serverip', 'q', 'quit'
     )
 
+    def __new__(cls, *args, **kwargs):
+        """重写__new__方法实现单例"""
+        if not hasattr(IPCTelnet, "_instance"):
+            with IPCTelnet._instance_lock:
+                if not hasattr(IPCTelnet, "_instance"):
+                    IPCTelnet._instance = object.__new__(cls)
+        return IPCTelnet._instance
+
     def __init__(self, ipc_ip):
         super().__init__(ipc_ip)
+        self.TEL_CONF = config.TagEraseConf()
+        self.username = self.TEL_CONF.USER
+        self.passwords = self.TEL_CONF.TEL_PWD_LIST
         self.telnet_client.set_debuglevel(5)
 
     def login(self):
