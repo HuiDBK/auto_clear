@@ -1,9 +1,1 @@
-2019-12-17 18:30:48 Tue - config.py - 49 - ERROR - Traceback (most recent call last):
-  File "D:\HUI\Python\WorkPlace\Auto_Clear\config\config.py", line 47, in parser
-    cls.conf_parser.read(DEF_CONF)  # 解析配置文件
-  File "D:\HUI\Python\lib\configparser.py", line 696, in read
-    self._read(fp, filename)
-  File "D:\HUI\Python\lib\configparser.py", line 1012, in _read
-    for lineno, line in enumerate(fp, start=1):
-UnicodeDecodeError: 'gbk' codec can't decode byte 0xad in position 36: illegal multibyte sequence
-
+﻿

@@ -4,9 +4,7 @@ version = 1.0
 author = Liu Min Hui
 
 [encode]
-code_1 = 0302C1E4
-code_2 = 0302C1E5
-code_3 = 0302C1E6
+
 
 [telnet]
 user = root

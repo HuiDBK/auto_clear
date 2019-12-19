@@ -5,9 +5,8 @@ author:Mr Liu
 version:1.0
 """
 import config
+import logging
 import telnetlib
-import traceback
-import threading
 
 
 class TelnetClient(object):
@@ -47,7 +46,7 @@ class TelnetClient(object):
 class IPCTelnet(TelnetClient):
     """IPC Telnet终端类"""
 
-    _instance_lock = threading.Lock()
+    # _instance_lock = threading.Lock()
     equipment_flag = False  # 标识是否进入装备模式
 
     # 进入装备模式命令和装备调试命令列表
@@ -59,51 +58,50 @@ class IPCTelnet(TelnetClient):
         'test tf get status', 'set serverip', 'get serverip', 'q', 'quit'
     )
 
-    def __new__(cls, *args, **kwargs):
-        """重写__new__方法实现单例"""
-        if not hasattr(IPCTelnet, "_instance"):
-            with IPCTelnet._instance_lock:
-                if not hasattr(IPCTelnet, "_instance"):
-                    IPCTelnet._instance = object.__new__(cls)
-        return IPCTelnet._instance
+    # def __new__(cls, *args, **kwargs):
+    #     """重写__new__方法实现单例"""
+    #     if not hasattr(IPCTelnet, "_instance"):
+    #         with IPCTelnet._instance_lock:
+    #             if not hasattr(IPCTelnet, "_instance"):
+    #                 IPCTelnet._instance = object.__new__(cls)
+    #     return IPCTelnet._instance
 
     def __init__(self, ipc_ip):
         super().__init__(ipc_ip)
         self.TEL_CONF = config.TagEraseConf()
         self.username = self.TEL_CONF.USER
         self.passwords = self.TEL_CONF.TEL_PWD_LIST
-        self.telnet_client.set_debuglevel(5)
+        self.login_status = False
+        self.telnet_client.set_debuglevel(0)
 
-    def login(self):
+    def login(self, user, pwd):
         """登录IPC终端"""
-        login_status = False
         try:
             self.telnet_client.open(self.host_ip, self.port)
         except:
-            print(traceback.format_exc())
-            return login_status
+            self.login_status = False
 
-        for password in self.passwords:
-            # 等待login: 出现,最多等待5s
-            self.telnet_client.read_until(b'login:', timeout=5)
+        # 等待login: 出现,最多等待5s
+        self.telnet_client.read_until(b'login:', timeout=5)
 
-            # 以ASCII码的方式写入用户名
-            self.telnet_client.write(self.username.encode('ascii') + b'\n')
-            self.telnet_client.read_until(b'Password:', timeout=5)
-            self.telnet_client.write(password.encode('ascii') + b'\n')
-            login_result = self.telnet_client.read_until(b'User@/root>', timeout=5).decode(encoding='ascii')
+        # 以ASCII码的方式写入用户名
+        self.telnet_client.write(user.encode('ascii') + b'\n')
+        self.telnet_client.read_until(b'Password:', timeout=5)
+        self.telnet_client.write(pwd.encode('ascii') + b'\n')
+        login_result = self.telnet_client.read_until(b'User@/root>', timeout=10).decode(encoding='ascii')
 
-            # 5秒后还没读取到User@/root>判断账号密码是否错误
-            if 'Login incorrect' in login_result:
-                login_status = False
-            elif 'User@/root>' in login_result:
-                login_status = True
-                return login_status
-            else:
-                print(login_result)
-                print('未知异常')
-                login_status = False
-        return login_status
+        # 5秒后还没读取到User@/root>判断账号密码是否错误
+        if 'Login incorrect' in login_result:
+            self.login_status = False
+            logging.info('telnet user[%s] pwd[%s] error\n' % (user, pwd))
+        elif 'User@/root>' in login_result:
+            self.login_status = True
+            logging.info('login success telnet user[%s] pwd[%s]\n' % (user, pwd))
+            return self.login_status
+        else:
+            logging.info('login telnet unknown exception\n')
+            self.login_status = False
+        return self.login_status
 
     def execute_cmd(self, cmd: str):
         """
@@ -206,6 +204,13 @@ class IPCTelnet(TelnetClient):
         print(result)
         return result
 
+    def quit(self):
+        """退出设备"""
+        try:
+            self.execute_cmd('exit')
+        except Exception as e:
+            logging.error(e)
+
     manuinfo = property(display_manuinfo)
     date = property(show_date)  # 时间信息
     ipconfig = property(display_conf)  # 网络配置信息
@@ -236,6 +241,20 @@ def ipc_telnet_test():
             print(ipc_client.telnet_client.get_socket())
         else:
             print("login %s" % status)
+
+
+def iter_out(iter_obj, row_num=5, left_just=18)-> (iter, int):
+    """
+    指定格式迭代输出
+    :param iter_obj: 待输出的可迭代对象
+    :param row_num: 默认一行输出5个
+    :param left_just: 左对齐的宽度默认18
+    """
+    for index in range(len(iter_obj)):
+        print(iter_obj[index].ljust(left_just), end='')
+        if (index+1) % row_num == 0:
+            print()
+    print('\n')
 
 
 def main():
